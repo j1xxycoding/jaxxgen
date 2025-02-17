@@ -58,8 +58,8 @@ function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (bin.length !== 6) {
-      setError('Please enter a valid 6-digit BIN');
+    if (bin.length < 6) {
+      setError('Please enter at least 6 digits of the card number');
       return;
     }
 
@@ -67,7 +67,7 @@ function App() {
     setError(null);
     
     try {
-      const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://lookup.binlist.net/${bin}`)}`);
+      const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://lookup.binlist.net/${bin.slice(0, 6)}`)}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch BIN data. Please try again later.');
@@ -94,8 +94,8 @@ function App() {
   };
 
   const generateCards = useCallback(() => {
-    if (bin.length !== 14) {
-      setError('Please enter a valid 6-digit BIN first');
+    if (bin.length !== 15) {
+      setError('Please enter a valid 15-digit card number');
       return;
     }
 
@@ -106,9 +106,7 @@ function App() {
 
     const cards: string[] = [];
     for (let i = 0; i < quantity; i++) {
-      const remainingLength = 15 - bin.length;
-      const cardNumber = bin + generateRandomDigits(remainingLength);
-      const validCardNumber = generateLuhn(cardNumber);
+      const validCardNumber = generateLuhn(bin);
       const cardMonth = month || generateRandomMonth();
       const cardYear = year || generateRandomYear();
       const cardCVV = cvv || generateRandomCVV();
@@ -338,10 +336,10 @@ function App() {
               <input
                 type="text"
                 value={bin}
-                onChange={(e) => setBin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter 6-digit BIN"
+                onChange={(e) => setBin(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                placeholder="Enter 15-digit card number"
                 className="w-full px-4 py-3 rounded-lg bg-gray-900 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-purple-400 focus:border-transparent outline-none transition-all placeholder-gray-500"
-                maxLength={6}
+                maxLength={15}
               />
             </div>
 
