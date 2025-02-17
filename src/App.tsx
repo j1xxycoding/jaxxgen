@@ -94,7 +94,7 @@ function App() {
   };
 
   const generateCards = useCallback(() => {
-    if (bin.length !== 6) {
+    if (bin.length !== 14) {
       setError('Please enter a valid 6-digit BIN first');
       return;
     }
