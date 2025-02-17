@@ -38,18 +38,21 @@ const api = axios.create({
 });
 
 function App() {
-  const [bin, setBin] = useState('');
+  // BIN lookup state
+  const [lookupBin, setLookupBin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [binData, setBinData] = useState<BinResponse | null>(null);
   const [showStripeBins, setShowStripeBins] = useState(false);
   
   // Card generator state
+  const [cardNumber, setCardNumber] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
   const [cvv, setCvv] = useState('');
   const [quantity, setQuantity] = useState<number>(10);
   const [generatedCards, setGeneratedCards] = useState<string[]>([]);
+  const [generatorError, setGeneratorError] = useState<string | null>(null);
 
   const quantityOptions = [10, 50, 100, 200, 300, 400, 500];
   const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
@@ -58,8 +61,8 @@ function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (bin.length < 6) {
-      setError('Please enter at least 6 digits of the card number');
+    if (lookupBin.length < 6) {
+      setError('Please enter at least 6 digits of the BIN');
       return;
     }
 
@@ -67,7 +70,7 @@ function App() {
     setError(null);
     
     try {
-      const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://lookup.binlist.net/${bin.slice(0, 6)}`)}`);
+      const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://lookup.binlist.net/${lookupBin.slice(0, 6)}`)}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch BIN data. Please try again later.');
@@ -94,26 +97,29 @@ function App() {
   };
 
   const generateCards = useCallback(() => {
-    if (bin.length !== 15) {
-      setError('Please enter a valid 15-digit card number');
+    if (cardNumber.length < 6 || cardNumber.length > 14) {
+      setGeneratorError('Please enter between 6 and 14 digits');
       return;
     }
 
     if (cvv && cvv.length !== 3) {
-      setError('CVV must be 3 digits');
+      setGeneratorError('CVV must be 3 digits');
       return;
     }
 
+    setGeneratorError(null);
     const cards: string[] = [];
     for (let i = 0; i < quantity; i++) {
-      const validCardNumber = generateLuhn(bin);
+      const remainingLength = 15 - cardNumber.length;
+      const fullCardNumber = cardNumber + generateRandomDigits(remainingLength);
+      const validCardNumber = generateLuhn(fullCardNumber);
       const cardMonth = month || generateRandomMonth();
       const cardYear = year || generateRandomYear();
       const cardCVV = cvv || generateRandomCVV();
       cards.push(`${validCardNumber}|${cardMonth}|${cardYear}|${cardCVV}`);
     }
     setGeneratedCards(cards);
-  }, [bin, month, year, cvv, quantity]);
+  }, [cardNumber, month, year, cvv, quantity]);
 
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -130,12 +136,12 @@ function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `generated_cards_${bin}_${quantity}.txt`;
+    a.download = `generated_cards_${cardNumber}_${quantity}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [generatedCards, bin, quantity]);
+  }, [generatedCards, cardNumber, quantity]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
@@ -205,8 +211,8 @@ function App() {
             <div className="relative">
               <input
                 type="text"
-                value={bin}
-                onChange={(e) => setBin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                value={lookupBin}
+                onChange={(e) => setLookupBin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="Enter 6-digit BIN"
                 className="w-full px-4 py-3 rounded-lg bg-gray-900 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none transition-all placeholder-gray-500"
                 maxLength={6}
@@ -335,12 +341,15 @@ function App() {
             <div className="relative">
               <input
                 type="text"
-                value={bin}
-                onChange={(e) => setBin(e.target.value.replace(/\D/g, '').slice(0, 15))}
-                placeholder="Enter 15-digit card number"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                placeholder="Enter 6-14 digits"
                 className="w-full px-4 py-3 rounded-lg bg-gray-900 border border-gray-700 text-gray-100 focus:ring-2 focus:ring-purple-400 focus:border-transparent outline-none transition-all placeholder-gray-500"
-                maxLength={15}
+                maxLength={14}
               />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                {cardNumber.length}/14
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -414,6 +423,17 @@ function App() {
               <RefreshCw size={18} />
               Generate {quantity} Cards
             </button>
+
+            {generatorError && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="p-3 bg-red-900/50 text-red-200 rounded-lg border border-red-700"
+              >
+                {generatorError}
+              </motion.div>
+            )}
 
             {generatedCards.length > 0 && (
               <motion.div
